@@ -34,12 +34,13 @@ conflict_base AS (
         im.fatalities,
         p.population,
         -- per-100k rates; NULL-safe via NULLIF
+        -- ASOF JOIN: falls back to latest available WB year when exact year is missing (e.g. 2025 incidents use 2024 population)
         (im.incident_count  * 1e5 / NULLIF(p.population, 0)) AS incident_rate_100k,
         (im.fatalities      * 1e5 / NULLIF(p.population, 0)) AS fatality_rate_100k
     FROM incidents_monthly im
-    LEFT JOIN pop p
+    ASOF LEFT JOIN pop p
            ON p.country_iso3 = im.country_iso3
-          AND p.period_start  = date_trunc('year', im.month_start)
+          AND date_trunc('year', im.month_start) >= p.period_start
 ),
 
 -- -----------------------------------------------------------------------
@@ -94,9 +95,9 @@ combined AS (
         nm.avg_tone
     FROM conflict_base cb
     LEFT JOIN sanctions_monthly sm USING (country_iso3, month_start)
-    LEFT JOIN milex mx
+    ASOF LEFT JOIN milex mx
            ON mx.country_iso3  = cb.country_iso3
-          AND mx.period_start  = date_trunc('year', cb.month_start)
+          AND date_trunc('year', cb.month_start) >= mx.period_start
     LEFT JOIN news_monthly nm  USING (country_iso3, month_start)
 ),
 norm_bounds AS (
@@ -114,10 +115,10 @@ SELECT
     c.month_start,
     -- Normalized sub-scores (0–1)
     CASE WHEN b.max_inc > b.min_inc
-         THEN (c.incident_rate_100k - b.min_inc) / (b.max_inc - b.min_inc)
+         THEN (COALESCE(c.incident_rate_100k, 0) - b.min_inc) / (b.max_inc - b.min_inc)
          ELSE 0 END                                       AS score_inc_norm,
     CASE WHEN b.max_fat > b.min_fat
-         THEN (c.fatality_rate_100k - b.min_fat) / (b.max_fat - b.min_fat)
+         THEN (COALESCE(c.fatality_rate_100k, 0) - b.min_fat) / (b.max_fat - b.min_fat)
          ELSE 0 END                                       AS score_fat_norm,
     CASE WHEN b.max_san > b.min_san
          THEN (c.sanction_count - b.min_san) / (b.max_san - b.min_san)
@@ -132,10 +133,10 @@ SELECT
     100.0 * (
         0.45  * (
             0.5 * CASE WHEN b.max_inc > b.min_inc
-                       THEN (c.incident_rate_100k - b.min_inc) / (b.max_inc - b.min_inc)
+                       THEN (COALESCE(c.incident_rate_100k, 0) - b.min_inc) / (b.max_inc - b.min_inc)
                        ELSE 0 END
           + 0.5 * CASE WHEN b.max_fat > b.min_fat
-                       THEN (c.fatality_rate_100k - b.min_fat) / (b.max_fat - b.min_fat)
+                       THEN (COALESCE(c.fatality_rate_100k, 0) - b.min_fat) / (b.max_fat - b.min_fat)
                        ELSE 0 END
         )
       + 0.20  * CASE WHEN b.max_san > b.min_san
