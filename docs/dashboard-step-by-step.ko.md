@@ -17,7 +17,8 @@ uv sync --dev
 cp .env.example .env
 ```
 
-4. 선택 사항: ACLED를 사용하려면 `.env`에 `ACLED_USERNAME`, `ACLED_PASSWORD`를 설정합니다.
+4. ACLED를 사용하려면 `data/raw/acled/`에 `*_aggregated_data_up_to-*.csv` 파일을 배치합니다.
+   - `number_of_*.csv` 및 `.xlsx` 파일은 파이프라인에서 무시됩니다.
 
 ## 2. 데이터 웨어하우스 초기화
 
@@ -55,6 +56,7 @@ uv run python scripts/run_pipeline.py --sources all --full-refresh
 
 참고:
 - UCDP는 `2024-12-31`까지 커버하며, 이후 사건 커버리지는 ACLED 활성화가 중요합니다.
+- ACLED는 주간 집계 스냅샷이며 사건 건수는 `event_count` 컬럼으로 집계됩니다.
 - 파이프라인 실행 상태는 `_pipeline_state` 테이블에 기록됩니다.
 
 ## 4. 품질 점검

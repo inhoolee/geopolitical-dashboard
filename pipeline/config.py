@@ -25,15 +25,11 @@ SQL_QUERIES_DIR = PROJECT_ROOT / "sql" / "queries"
 DASHBOARD_START_DATE = date(2017, 1, 20)  # Trump's first inauguration
 
 # ---------------------------------------------------------------------------
-# ACLED  (optional – pipeline skips gracefully if unset)
+# ACLED (local CSV snapshots)
 # ---------------------------------------------------------------------------
-ACLED_USERNAME: str | None = os.getenv("ACLED_USERNAME")
-ACLED_PASSWORD: str | None = os.getenv("ACLED_PASSWORD")
-ACLED_CLIENT_ID: str = os.getenv("ACLED_CLIENT_ID", "acled")
-ACLED_OAUTH_URL: str = os.getenv("ACLED_OAUTH_URL", "https://acleddata.com/oauth/token")
-ACLED_BASE_URL = "https://acleddata.com/api/acled/read"
-ACLED_PAGE_SIZE = 5000
 ACLED_RAW_DIR = RAW_ROOT / "acled"
+ACLED_REGIONAL_CSV_GLOB = "*_aggregated_data_up_to-*.csv"
+ACLED_SUMMARY_CSV_PREFIX = "number_of_"
 
 # ---------------------------------------------------------------------------
 # UCDP GED

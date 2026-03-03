@@ -5,7 +5,7 @@ ETL pipeline and DuckDB warehouse for tracking geopolitical change from **2017-0
 ## What This Repo Does
 
 - Extracts raw data from:
-  - ACLED (conflict events, optional credentials)
+  - ACLED (conflict events, local CSV snapshots)
   - UCDP GED v25.1 (conflict events, historical baseline)
   - World Bank WDI (macro + military spend indicators)
   - OFAC SDN (sanctions actions)
@@ -49,7 +49,6 @@ sql/
 - Python 3.10+
 - `uv` (Python package/dependency manager)
 - Network access for external data pulls
-- Optional ACLED credentials for post-2024 incident coverage
 
 Install dependencies:
 
@@ -67,8 +66,16 @@ cp .env.example .env
 
 `.env.example` supports:
 
-- `ACLED_USERNAME` + `ACLED_PASSWORD` (recommended OAuth token auth)
 - `WAREHOUSE_PATH` (optional override of `data/warehouse/geopolitical.duckdb`)
+
+ACLED ingestion is file-based and reads only:
+
+- `data/raw/acled/*_aggregated_data_up_to-*.csv`
+
+The pipeline ignores:
+
+- `data/raw/acled/*.xlsx`
+- `data/raw/acled/number_of_*.csv`
 
 ## Quickstart
 
@@ -116,6 +123,12 @@ uv run python scripts/run_pipeline.py --sources wb,ofac,seed
 uv run python scripts/run_pipeline.py --sources acled --log-level DEBUG
 ```
 
+ACLED is loaded from local CSV snapshots in `data/raw/acled/`:
+
+```bash
+uv run python scripts/run_pipeline.py --sources acled --log-level DEBUG
+```
+
 ## Data Model
 
 Core fact tables:
@@ -136,6 +149,11 @@ Core dimensions:
 Pipeline bookkeeping:
 
 - `_pipeline_state` (last run status by source)
+
+`fact_incident` includes `event_count`:
+
+- For UCDP/API-like event rows: `event_count = 1`
+- For ACLED aggregate rows: `event_count = EVENTS` from source CSV
 
 Pre-aggregated dashboard views are created during schema bootstrap:
 
@@ -170,14 +188,15 @@ statements = [s.strip() for s in sql_text.split(";") if s.strip()]
 for stmt in statements:
     rows = conn.execute(stmt).fetchall()
     if rows:
-        print(rows[0][0], rows[0][1])
+        print(rows[0])
 PY
 ```
 
 ## Known Data Caveats
 
 - UCDP GED in this pipeline is v25.1 and ends at **2024-12-31**.
-- ACLED is optional in code, but required for reliable post-2024 incident coverage.
+- ACLED uses weekly aggregate CSV snapshots in this repo, not event-level API records.
+- ACLED aggregate rows do not include event-level actors/source URLs in this implementation.
 - OFAC SDN CSV has no canonical designation date in this implementation; `action_date` is ingestion-date based and flagged `LOW` confidence.
 - GDELT extraction is batched in ~90-day windows and capped by `GDELT_MAX_RECORDS` per query window.
 
@@ -188,7 +207,8 @@ PY
   - Stop the other process or run with a different `WAREHOUSE_PATH`.
 
 - ACLED silently skipped:
-  - Confirm `ACLED_USERNAME` + `ACLED_PASSWORD` are set in `.env`.
+  - Confirm regional CSV files exist under `data/raw/acled/` with names like `*_aggregated_data_up_to-*.csv`.
+  - Confirm files are not only `number_of_*.csv` summary exports.
 
 - No rows loaded for a source:
   - Check `data/raw/<source>/` files exist.

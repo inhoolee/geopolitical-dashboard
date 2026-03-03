@@ -15,23 +15,30 @@ SELECT 'fact_incident negative fatalities' AS check_name, COUNT(*) AS violations
 FROM fact_incident
 WHERE fatalities_best < 0 OR fatalities_low < 0 OR fatalities_high < 0;
 
--- 4. Duplicate diplomatic action IDs
+-- 4. Invalid event_count values
+SELECT 'fact_incident invalid event_count' AS check_name, COUNT(*) AS violations
+FROM fact_incident
+WHERE event_count IS NULL OR event_count < 0;
+
+-- 5. Duplicate diplomatic action IDs
 SELECT 'fact_diplomatic_action duplicate PKs' AS check_name, COUNT(*) AS violations
 FROM (SELECT action_id FROM fact_diplomatic_action GROUP BY action_id HAVING COUNT(*) > 1);
 
--- 5. Risk indicator: missing country mapping
+-- 6. Risk indicator: missing country mapping
 SELECT 'fact_risk_indicator unmapped countries' AS check_name, COUNT(DISTINCT country_iso3) AS violations
 FROM fact_risk_indicator
 WHERE country_iso3 NOT IN (SELECT iso3 FROM dim_country);
 
--- 6. Incident coverage gap: no ACLED records after UCDP coverage ends
+-- 7. Incident coverage gap: no ACLED records after UCDP coverage ends
 SELECT 'post-2024 incident coverage (ACLED only)' AS check_name,
-       COUNT(*) AS total_events,
-       COUNT(*) FILTER (WHERE source_system = 'ACLED') AS acled_events
+       COUNT(*) AS total_rows,
+       SUM(COALESCE(event_count, 1)) AS total_incidents,
+       COUNT(*) FILTER (WHERE source_system = 'ACLED') AS acled_rows,
+       SUM(COALESCE(event_count, 1)) FILTER (WHERE source_system = 'ACLED') AS acled_incidents
 FROM fact_incident
 WHERE event_date > '2024-12-31';
 
--- 7. News pulse articles without country focus
+-- 8. News pulse articles without country focus
 SELECT 'fact_news_pulse missing country' AS check_name, COUNT(*) AS violations
 FROM fact_news_pulse
 WHERE country_focus_iso3 IS NULL;

@@ -13,3 +13,6 @@ data/warehouse/
 # DuckDB files
 *.duckdb
 *.duckdb.wal
+
+# Tableau
+*.twbr

@@ -46,6 +46,7 @@ def run_source(
     table: str,
     conn,
     force: bool,
+    replace_source_system: str | None = None,
 ) -> int:
     """Extract → transform → load one source. Returns rows loaded."""
     logger.info("=== %s ===", name)
@@ -59,7 +60,21 @@ def run_source(
             logger.warning("%s: transformer returned empty DataFrame", name)
             update_pipeline_state(conn, name, 0, status="partial")
             return 0
-        n = upsert(conn, table, df)
+        if replace_source_system:
+            try:
+                conn.execute("BEGIN")
+                conn.execute(
+                    f"DELETE FROM {table} WHERE source_system = ?",
+                    [replace_source_system],
+                )
+                n = upsert(conn, table, df, commit=False)
+                conn.execute("COMMIT")
+                logger.info("%s load mode: full replace for source_system=%s", name, replace_source_system)
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        else:
+            n = upsert(conn, table, df)
         last_date = None
         if "event_date" in df.columns:
             last_date = df["event_date"].max()
@@ -127,6 +142,7 @@ def main() -> None:
             table=table,
             conn=conn,
             force=args.full_refresh,
+            replace_source_system="ACLED" if key == "acled" else None,
         )
 
     logger.info("Pipeline complete. Total rows loaded: %d", total_rows)

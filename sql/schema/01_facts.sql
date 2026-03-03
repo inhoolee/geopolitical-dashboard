@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS fact_incident (
     actor2_name          VARCHAR,
     interaction_code     VARCHAR,
     civilian_targeting   BOOLEAN,
+    event_count          INTEGER NOT NULL DEFAULT 1,
     fatalities_best      INTEGER,
     fatalities_low       INTEGER,
     fatalities_high      INTEGER,
@@ -28,6 +29,9 @@ CREATE TABLE IF NOT EXISTS fact_incident (
     source_urls          VARCHAR,
     ingested_at_utc      TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
+
+ALTER TABLE fact_incident ADD COLUMN IF NOT EXISTS event_count INTEGER DEFAULT 1;
+UPDATE fact_incident SET event_count = 1 WHERE event_count IS NULL;
 
 CREATE TABLE IF NOT EXISTS fact_diplomatic_action (
     action_id            VARCHAR PRIMARY KEY,

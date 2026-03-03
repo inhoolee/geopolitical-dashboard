@@ -33,7 +33,7 @@ Canonical fact tables:
 
 ## Primary Source Systems
 
-- **ACLED**: event-level conflict and protest incidents (optional credentials in this repo)
+- **ACLED**: weekly aggregated conflict/protest snapshots from local CSV files
 - **UCDP GED v25.1**: structured conflict event baseline
 - **World Bank WDI**: macro and military-related indicators
 - **OFAC SDN**: sanctions-related actions
@@ -57,6 +57,7 @@ Canonical fact tables:
 
 ## Data Caveats
 
-- ACLED is optional in code but important for stronger post-2024 incident coverage.
+- ACLED in this repo is loaded from `data/raw/acled/*_aggregated_data_up_to-*.csv`.
+- ACLED aggregate rows include `event_count`; trend metrics should use `SUM(event_count)`.
 - OFAC designation timing in current implementation is ingestion-date based, not canonical designation-date based.
 - News-based measures are directional proxies and should be interpreted with source and confidence context.

@@ -27,6 +27,7 @@ def upsert(
     table: str,
     df: pd.DataFrame,
     add_ingested_at: bool = True,
+    commit: bool = True,
 ) -> int:
     """
     Insert or replace rows into a DuckDB table from a DataFrame.
@@ -61,7 +62,8 @@ def upsert(
     sql = f"INSERT OR REPLACE INTO {table} ({col_list}) SELECT {col_list} FROM _staging"
 
     conn.execute(sql)
-    conn.commit()
+    if commit:
+        conn.commit()
     n = len(df)
     logger.info("Loaded %d rows into %s", n, table)
     return n

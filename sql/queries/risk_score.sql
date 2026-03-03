@@ -21,7 +21,7 @@ incidents_monthly AS (
     SELECT
         country_iso3,
         date_trunc('month', event_date) AS month_start,
-        COUNT(*)                        AS incident_count,
+        SUM(COALESCE(event_count, 1))   AS incident_count,
         SUM(fatalities_best)            AS fatalities
     FROM fact_incident
     GROUP BY 1, 2
