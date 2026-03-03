@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Downloaded raw data (large files)
+data/raw/
+data/warehouse/
+
+# DuckDB files
+*.duckdb
+*.duckdb.wal
