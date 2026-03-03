@@ -69,9 +69,8 @@ fig_heat.update_layout(
         gridcolor="#334155",
     ),
     coloraxis_colorbar=dict(
-        title="Score",
+        title=dict(text="Score", font=dict(color="#94A3B8")),
         tickfont=dict(color="#94A3B8"),
-        titlefont=dict(color="#94A3B8"),
     ),
     title=dict(
         text="GRS Driver Scores (0–1 normalised) — numbers on right = composite GRS",

@@ -81,9 +81,8 @@ with map_col:
             projection_type="natural earth",
         ),
         coloraxis_colorbar=dict(
-            title="GRS",
+            title=dict(text="GRS", font=dict(color="#94A3B8")),
             tickfont=dict(color="#94A3B8"),
-            titlefont=dict(color="#94A3B8"),
         ),
         height=440,
     )

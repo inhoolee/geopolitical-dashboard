@@ -76,9 +76,8 @@ with map_col:
             bgcolor="#0F172A",
         ),
         coloraxis_colorbar=dict(
-            title="SDN count",
+            title=dict(text="SDN count", font=dict(color="#94A3B8")),
             tickfont=dict(color="#94A3B8"),
-            titlefont=dict(color="#94A3B8"),
         ),
     )
     st.plotly_chart(fig_smap, use_container_width=True)
