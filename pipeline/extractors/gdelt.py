@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Seconds to sleep between API calls to avoid rate-limiting
 _SLEEP_BETWEEN_CALLS = 2.0
 # Simplified single-theme query to reduce API load per call
-_SIMPLE_THEME_QUERY = "theme:MILITARY OR theme:SANCTION OR theme:DIPLOMACY"
+_SIMPLE_THEME_QUERY = "(theme:MILITARY OR theme:SANCTION OR theme:DIPLOMACY)"
 
 
 def _quarter_windows(start: date, end: date) -> list[tuple[date, date]]:

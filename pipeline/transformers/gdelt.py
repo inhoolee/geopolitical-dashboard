@@ -8,7 +8,7 @@ import pandas as pd
 
 from pipeline.config import GDELT_RAW_DIR
 from pipeline.utils.id_gen import make_uuid
-from pipeline.utils.iso3 import iso2_to_iso3
+from pipeline.utils.iso3 import iso2_to_iso3, name_to_iso3
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,17 @@ def _fips_to_iso3(fips: str) -> str | None:
     if fips in _FIPS_EXTRA:
         return _FIPS_EXTRA[fips]
     return iso2_to_iso3(fips)
+
+
+def _sourcecountry_to_iso3(value: str) -> str | None:
+    """Resolve GDELT sourcecountry values to ISO3.
+
+    GDELT may emit either 2-letter codes or full country names.
+    """
+    if not value:
+        return None
+    # Prefer legacy FIPS/ISO2 mapping; if that fails, treat as country name.
+    return _fips_to_iso3(value) or name_to_iso3(value)
 
 
 def transform() -> pd.DataFrame:
@@ -63,7 +74,7 @@ def transform() -> pd.DataFrame:
         raw.get("seendate", pd.Series(dtype=str)), format="%Y%m%dT%H%M%SZ", errors="coerce", utc=True
     )
 
-    df["country_focus_iso3"] = raw.get("sourcecountry", pd.Series(dtype=str)).apply(_fips_to_iso3)
+    df["country_focus_iso3"] = raw.get("sourcecountry", pd.Series(dtype=str)).apply(_sourcecountry_to_iso3)
     df["region_code"] = None
 
     df["title"] = raw.get("title", pd.Series(dtype=str))
