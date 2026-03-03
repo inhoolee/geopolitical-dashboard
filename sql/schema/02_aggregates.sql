@@ -6,10 +6,12 @@ SELECT
     fi.country_iso3,
     fi.region_code,
     fi.event_type,
-    SUM(COALESCE(fi.event_count, 1))             AS incident_count,
-    SUM(fi.fatalities_best)                      AS fatalities_total,
-    SUM(CASE WHEN fi.civilian_targeting THEN COALESCE(fi.event_count, 1) ELSE 0 END)
-                                                 AS civilian_incidents,
+    CAST(SUM(COALESCE(fi.event_count, 1)) AS BIGINT) AS incident_count,
+    CAST(SUM(fi.fatalities_best) AS BIGINT)      AS fatalities_total,
+    CAST(
+        SUM(CASE WHEN fi.civilian_targeting THEN COALESCE(fi.event_count, 1) ELSE 0 END)
+        AS BIGINT
+    )                                            AS civilian_incidents,
     COUNT(DISTINCT fi.source_system)             AS source_count
 FROM fact_incident fi
 GROUP BY 1, 2, 3, 4;
@@ -19,10 +21,12 @@ SELECT
     date_trunc('month', fi.event_date)           AS month_start,
     fi.country_iso3,
     fi.region_code,
-    SUM(COALESCE(fi.event_count, 1))             AS incident_count,
-    SUM(fi.fatalities_best)                      AS fatalities_total,
-    SUM(CASE WHEN fi.civilian_targeting THEN COALESCE(fi.event_count, 1) ELSE 0 END)
-                                                 AS civilian_incidents
+    CAST(SUM(COALESCE(fi.event_count, 1)) AS BIGINT) AS incident_count,
+    CAST(SUM(fi.fatalities_best) AS BIGINT)      AS fatalities_total,
+    CAST(
+        SUM(CASE WHEN fi.civilian_targeting THEN COALESCE(fi.event_count, 1) ELSE 0 END)
+        AS BIGINT
+    )                                            AS civilian_incidents
 FROM fact_incident fi
 GROUP BY 1, 2, 3;
 

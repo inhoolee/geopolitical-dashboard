@@ -55,9 +55,35 @@ uv run python scripts/run_pipeline.py --sources all --full-refresh
 ```
 
 참고:
-- UCDP는 `2024-12-31`까지 커버하며, 이후 사건 커버리지는 ACLED 활성화가 중요합니다.
+- 사건 데이터는 `UCDP_GED(1989-01-01~2024-12-31)` + `ACLED(1996-12-28~현재)`를 병합해 사용합니다.
+- `2026-03-03` 적재 기준 ACLED 최신 사건일은 `2026-02-21`입니다.
 - ACLED는 주간 집계 스냅샷이며 사건 건수는 `event_count` 컬럼으로 집계됩니다.
 - 파이프라인 실행 상태는 `_pipeline_state` 테이블에 기록됩니다.
+
+### 3-1. 현재 데이터 스냅샷(`2026-03-03` 실행 기준)
+
+아래 값은 `data/warehouse/geopolitical.duckdb`에서 직접 조회한 최신 범위입니다.
+
+- `fact_incident`: `1989-01-01` ~ `2026-02-21` (총 사건 `3,308,883`, 사망자 `6,469,058`, 국가 `232`)
+- `country_week_agg`: `1988-12-26` ~ `2026-02-16`
+- `country_month_agg`: `1989-01-01` ~ `2026-02-01`
+- `grs_monthly` 행 존재 범위: `1989-01-01` ~ `2026-02-01` (국가 `232`)
+- `grs_monthly.grs_0_100` 비NULL 최신 월: `2024-12-01`
+- `fact_diplomatic_action`: `2017-01-23` ~ `2026-03-03` (총 `18,751`건)
+- `country_week_news`, `fact_news_pulse`: 현재 적재 `0`건 (`GDELT` 상태: `partial`)
+
+재확인용 쿼리:
+
+```bash
+uv run python - <<'PY'
+import duckdb
+con = duckdb.connect("data/warehouse/geopolitical.duckdb", read_only=True)
+print(con.execute("SELECT MIN(event_date), MAX(event_date) FROM fact_incident").fetchall())
+print(con.execute("SELECT MAX(month_start) FROM grs_monthly WHERE grs_0_100 IS NOT NULL").fetchall())
+print(con.execute("SELECT MIN(action_date), MAX(action_date), COUNT(*) FROM fact_diplomatic_action").fetchall())
+print(con.execute("SELECT COUNT(*) FROM fact_news_pulse").fetchall())
+PY
+```
 
 ## 4. 품질 점검
 
@@ -120,23 +146,26 @@ Tableau에서 주로 쓰는 뷰/테이블은 아래입니다.
    - `Rows`: 비움
    - `Marks`: `Text`
    - `Text`: KPI 값 1개만 배치
-   - `Filters`: 최근 30일 + (필요 시) 국가/권역
-3. `KPI_사건수_30일` (`country_week_agg`)
+   - `Filters`: 최신 데이터 기준 최근 30일 + (필요 시) 국가/권역
+3. 계산 필드(권장)
+   - `Latest Week`: `{ FIXED : MAX([week_start]) }`
+   - `Latest Action Date`: `{ FIXED : MAX([action_date]) }`
+4. `KPI_사건수_30일` (`country_week_agg`)
    - `Text`: `SUM([incident_count])`
-   - `Filters`: `[week_start] >= DATEADD('day', -30, TODAY())`
-4. `KPI_사망자_30일` (`country_week_agg`)
+   - `Filters`: `[week_start] >= DATEADD('day', -30, [Latest Week])`
+5. `KPI_사망자_30일` (`country_week_agg`)
    - `Text`: `SUM([fatalities_total])`
-   - `Filters`: `[week_start] >= DATEADD('day', -30, TODAY())`
-5. `KPI_제재_30일` (`fact_diplomatic_action`)
+   - `Filters`: `[week_start] >= DATEADD('day', -30, [Latest Week])`
+6. `KPI_제재_30일` (`fact_diplomatic_action`)
    - `Text`: `COUNT([action_id])`
-   - `Filters`: `[action_type] = 'sanction'`, `[action_date] >= DATEADD('day', -30, TODAY())`
-6. `KPI_평균톤_30일` (`country_week_news`)
+   - `Filters`: `[action_type] = 'sanction'`, `[action_date] >= DATEADD('day', -30, [Latest Action Date])`
+7. `KPI_평균톤_30일` (`country_week_news`)
    - `Text`: `AVG([avg_tone])`
-   - `Filters`: `[week_start] >= DATEADD('day', -30, TODAY())`
-7. 서식(권장)
+   - `Filters`: `[week_start] >= DATEADD('day', -30, [Latest Week])`
+8. 서식(권장)
    - 숫자 포맷: 사건/사망/제재는 정수, 평균 톤은 소수점 2자리
    - 제목: `KPI | 사건 수(30일)`처럼 기간을 명시
-8. 대시보드에서 4개 KPI 시트를 가로 컨테이너에 배치합니다.
+9. 대시보드에서 4개 KPI 시트를 가로 컨테이너에 배치합니다.
 
 권장 필드:
 - `country_iso3` 또는 `country_focus_iso3` (국가 필터 연동)
@@ -159,7 +188,8 @@ Tableau에서 주로 쓰는 뷰/테이블은 아래입니다.
    - `Marks`: `Map`
    - `Detail`: `country_iso3`
    - `Color`: `AVG([grs_0_100])`
-   - `Filters`: `month_start`를 최신 월 1개만 선택
+   - `Filters`: `[grs_0_100]` 비NULL + `month_start`를 최신 점수 월 1개만 선택
+   - 계산 필드 예시: `Latest Scored Month = { FIXED : MAX(IF NOT ISNULL([grs_0_100]) THEN [month_start] END) }`
 3. `Map_Incident_Detail` 시트 생성: `fact_incident`의 `latitude`, `longitude`로 점 맵을 만듭니다.
 4. `Map_Incident_Detail` 선반 배치
    - `Columns`: `AVG([longitude])`
@@ -196,6 +226,7 @@ Tableau에서 주로 쓰는 뷰/테이블은 아래입니다.
    - `AVG(grs_0_100)` 카드: `Line`, 색상 빨강
 6. 필요 시 세 번째 지표 `SUM([fatalities_total])`을 추가하고 `Measure Values` 기반 다중 라인으로 전환합니다.
 7. `Filters`: `month_start` 기간, 국가/권역 공통 필터 적용
+   - 리스크 라인은 필요 시 `[grs_0_100]` 비NULL 필터를 추가해 공백 구간을 분리합니다.
 
 권장 필드:
 - `country_month_agg.month_start`, `incident_count`, `fatalities_total`
@@ -238,6 +269,7 @@ Tableau에서 주로 쓰는 뷰/테이블은 아래입니다.
 
 구성 순서:
 1. `News_Trend` 시트 생성
+   - 참고: `2026-03-03` 기준 뉴스 테이블은 0건이라 시트가 비어 있을 수 있습니다.
 2. 선반 배치
    - `Columns`: `week_start` (Week, Continuous)
    - `Rows`: `SUM([article_count])`
