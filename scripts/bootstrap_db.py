@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 SOURCE_SYSTEM_SEED = [
     ("ACLED", "Armed Conflict Location and Event Data Project",
      "https://acleddata.com", "API", "2017-01-20", None,
-     "API key required; register at https://acleddata.com/register/"),
+     "OAuth token authentication required; register at https://acleddata.com/register/"),
     ("UCDP_GED", "UCDP Georeferenced Event Dataset v25.1",
      "https://ucdp.uu.se", "Download", "1989-01-01", "2024-12-31",
      "Annual release; 2025+ events require ACLED"),

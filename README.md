@@ -67,7 +67,7 @@ cp .env.example .env
 
 `.env.example` supports:
 
-- `ACLED_API_KEY` + `ACLED_EMAIL` (optional but strongly recommended)
+- `ACLED_USERNAME` + `ACLED_PASSWORD` (recommended OAuth token auth)
 - `WAREHOUSE_PATH` (optional override of `data/warehouse/geopolitical.duckdb`)
 
 ## Quickstart
@@ -188,7 +188,7 @@ PY
   - Stop the other process or run with a different `WAREHOUSE_PATH`.
 
 - ACLED silently skipped:
-  - Confirm both `ACLED_API_KEY` and `ACLED_EMAIL` are set in `.env`.
+  - Confirm `ACLED_USERNAME` + `ACLED_PASSWORD` are set in `.env`.
 
 - No rows loaded for a source:
   - Check `data/raw/<source>/` files exist.

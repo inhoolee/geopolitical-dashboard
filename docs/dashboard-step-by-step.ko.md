@@ -17,7 +17,7 @@ uv sync --dev
 cp .env.example .env
 ```
 
-4. 선택 사항: ACLED를 사용하려면 `.env`에 `ACLED_API_KEY`, `ACLED_EMAIL`을 설정합니다.
+4. 선택 사항: ACLED를 사용하려면 `.env`에 `ACLED_USERNAME`, `ACLED_PASSWORD`를 설정합니다.
 
 ## 2. 데이터 웨어하우스 초기화
 

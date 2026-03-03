@@ -1,15 +1,14 @@
-"""ACLED API extractor – requires ACLED_API_KEY and ACLED_EMAIL env vars."""
+"""ACLED API extractor using OAuth token auth."""
 
 import json
 import logging
 from datetime import date
-from pathlib import Path
 
 import requests
 
 from pipeline.config import (
-    ACLED_API_KEY, ACLED_EMAIL, ACLED_BASE_URL, ACLED_PAGE_SIZE,
-    ACLED_RAW_DIR, DASHBOARD_START_DATE,
+    ACLED_BASE_URL, ACLED_CLIENT_ID, ACLED_OAUTH_URL, ACLED_PAGE_SIZE,
+    ACLED_PASSWORD, ACLED_USERNAME, ACLED_RAW_DIR, DASHBOARD_START_DATE,
 )
 from pipeline.extractors.base import BaseExtractor
 from pipeline.utils.retry import retry
@@ -28,14 +27,18 @@ ACLED_FIELDS = "|".join([
 class ACLEDExtractor(BaseExtractor):
     SOURCE_NAME = "ACLED"
 
+    def __init__(self) -> None:
+        self._access_token: str | None = None
+        self._refresh_token: str | None = None
+
     def is_available(self) -> bool:
-        if not (ACLED_API_KEY and ACLED_EMAIL):
-            logger.warning(
-                "ACLED credentials not set. Set ACLED_API_KEY and ACLED_EMAIL "
-                "environment variables (register at https://acleddata.com/register/)"
-            )
-            return False
-        return True
+        if ACLED_USERNAME and ACLED_PASSWORD:
+            return True
+        logger.warning(
+            "ACLED credentials not set. Provide ACLED_USERNAME + ACLED_PASSWORD "
+            "for OAuth token auth."
+        )
+        return False
 
     def extract(
         self,
@@ -48,6 +51,8 @@ class ACLEDExtractor(BaseExtractor):
         end = end_date or date.today()
         start_str = start.strftime("%Y-%m-%d")
         end_str = end.strftime("%Y-%m-%d")
+        logger.info("ACLED auth mode: OAuth token")
+        self._login_with_password()
 
         logger.info("ACLED extraction: %s → %s", start_str, end_str)
         page = 1
@@ -55,16 +60,20 @@ class ACLEDExtractor(BaseExtractor):
 
         while True:
             params = {
-                "key": ACLED_API_KEY,
-                "email": ACLED_EMAIL,
                 "event_date": f"{start_str}|{end_str}",
                 "event_date_where": "BETWEEN",
                 "limit": ACLED_PAGE_SIZE,
                 "page": page,
-                "format": "json",
                 "fields": ACLED_FIELDS,
+                "_format": "json",
             }
-            data = self._get_json(params)
+            headers = {"Authorization": f"Bearer {self._access_token}"}
+
+            data = self._get_json(
+                params=params,
+                headers=headers,
+                use_token_auth=True,
+            )
             records = data.get("data", [])
             if not records:
                 break
@@ -83,7 +92,65 @@ class ACLEDExtractor(BaseExtractor):
         logger.info("ACLED extraction complete: %d records", total_saved)
 
     @retry(max_attempts=4, backoff_base=3.0, exceptions=(requests.RequestException,))
-    def _get_json(self, params: dict) -> dict:
-        resp = requests.get(ACLED_BASE_URL, params=params, timeout=60)
+    def _request_token(self, payload: dict[str, str]) -> dict:
+        resp = requests.post(ACLED_OAUTH_URL, data=payload, timeout=60)
         resp.raise_for_status()
-        return resp.json()
+        token_data = resp.json()
+        if not isinstance(token_data, dict):
+            raise RuntimeError("ACLED token response JSON is not an object")
+        return token_data
+
+    def _login_with_password(self) -> None:
+        token_data = self._request_token(
+            {
+                "username": ACLED_USERNAME or "",
+                "password": ACLED_PASSWORD or "",
+                "grant_type": "password",
+                "client_id": ACLED_CLIENT_ID,
+            }
+        )
+        self._set_tokens(token_data)
+
+    def _refresh_access_token(self) -> bool:
+        if not self._refresh_token:
+            return False
+        try:
+            token_data = self._request_token(
+                {
+                    "refresh_token": self._refresh_token,
+                    "grant_type": "refresh_token",
+                    "client_id": ACLED_CLIENT_ID,
+                }
+            )
+        except requests.RequestException:
+            return False
+        self._set_tokens(token_data)
+        return bool(self._access_token)
+
+    def _set_tokens(self, token_data: dict) -> None:
+        self._access_token = token_data.get("access_token")
+        self._refresh_token = token_data.get("refresh_token", self._refresh_token)
+        if not self._access_token:
+            raise RuntimeError("ACLED token response missing access_token")
+
+    @retry(max_attempts=4, backoff_base=3.0, exceptions=(requests.RequestException,))
+    def _get_json(
+        self,
+        params: dict,
+        headers: dict[str, str] | None = None,
+        use_token_auth: bool = False,
+    ) -> dict:
+        resp = requests.get(ACLED_BASE_URL, params=params, headers=headers, timeout=60)
+        if use_token_auth and resp.status_code == 401:
+            logger.info("ACLED token unauthorized/expired; attempting refresh")
+            if not self._refresh_access_token():
+                logger.info("ACLED refresh failed; requesting new access token")
+                self._login_with_password()
+            refreshed_headers = dict(headers or {})
+            refreshed_headers["Authorization"] = f"Bearer {self._access_token}"
+            resp = requests.get(ACLED_BASE_URL, params=params, headers=refreshed_headers, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        if not isinstance(data, dict):
+            raise RuntimeError("ACLED response JSON is not an object")
+        return data
