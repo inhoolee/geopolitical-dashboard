@@ -46,16 +46,15 @@ sql/
 
 ## Prerequisites
 
-- Python 3.10+ (`python3`)
+- Python 3.10+
+- `uv` (Python package/dependency manager)
 - Network access for external data pulls
 - Optional ACLED credentials for post-2024 incident coverage
 
 Install dependencies:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync --dev
 ```
 
 ## Environment Configuration
@@ -76,31 +75,31 @@ cp .env.example .env
 1. Initialize schema + static dimensions:
 
 ```bash
-python3 scripts/bootstrap_db.py
-python3 scripts/seed_dimensions.py
+uv run python scripts/bootstrap_db.py
+uv run python scripts/seed_dimensions.py
 ```
 
 2. Run a small local-only load (seed events only):
 
 ```bash
-python3 scripts/run_pipeline.py --sources seed
+uv run python scripts/run_pipeline.py --sources seed
 ```
 
 3. Run all available sources:
 
 ```bash
-python3 scripts/run_pipeline.py --sources all
+uv run python scripts/run_pipeline.py --sources all
 ```
 
 4. Force re-download of raw inputs:
 
 ```bash
-python3 scripts/run_pipeline.py --sources all --full-refresh
+uv run python scripts/run_pipeline.py --sources all --full-refresh
 ```
 
 ## Source Selection
 
-`scripts/run_pipeline.py --sources ...` accepts:
+`uv run python scripts/run_pipeline.py --sources ...` accepts:
 
 - `all`
 - `ucdp`
@@ -113,8 +112,8 @@ python3 scripts/run_pipeline.py --sources all --full-refresh
 Examples:
 
 ```bash
-python3 scripts/run_pipeline.py --sources wb,ofac,seed
-python3 scripts/run_pipeline.py --sources acled --log-level DEBUG
+uv run python scripts/run_pipeline.py --sources wb,ofac,seed
+uv run python scripts/run_pipeline.py --sources acled --log-level DEBUG
 ```
 
 ## Data Model
@@ -150,7 +149,7 @@ Pre-aggregated dashboard views are created during schema bootstrap:
 Create/update `grs_monthly`:
 
 ```bash
-python3 - <<'PY'
+uv run python - <<'PY'
 from pathlib import Path
 from pipeline.db import get_connection
 conn = get_connection()
@@ -162,7 +161,7 @@ PY
 Run validation checks:
 
 ```bash
-python3 - <<'PY'
+uv run python - <<'PY'
 from pathlib import Path
 from pipeline.db import get_connection
 conn = get_connection()

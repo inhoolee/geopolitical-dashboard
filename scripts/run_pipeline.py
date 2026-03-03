@@ -1,12 +1,12 @@
 """Main ETL orchestrator.
 
 Usage:
-    python scripts/run_pipeline.py [--sources all|ucdp|wb|ofac|seed|gdelt|acled] [--full-refresh]
+    uv run python scripts/run_pipeline.py [--sources all|ucdp|wb|ofac|seed|gdelt|acled] [--full-refresh]
 
 Example:
-    python scripts/run_pipeline.py                        # incremental, all available sources
-    python scripts/run_pipeline.py --sources seed,wb      # seed events + World Bank only
-    python scripts/run_pipeline.py --full-refresh         # re-download everything
+    uv run python scripts/run_pipeline.py                        # incremental, all available sources
+    uv run python scripts/run_pipeline.py --sources seed,wb      # seed events + World Bank only
+    uv run python scripts/run_pipeline.py --full-refresh         # re-download everything
 """
 
 import argparse

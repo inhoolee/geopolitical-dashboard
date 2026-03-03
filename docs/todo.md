@@ -10,7 +10,7 @@ _Last updated: 2026-03-03_
 |---|---|---|
 | 1 | **Backfill `region_code` in `fact_incident`** | All 385,918 rows are NULL — the regional filter and choropleth won't work in Tableau without it. One `UPDATE fact_incident SET region_code = (SELECT region_code FROM dim_country WHERE iso3 = fact_incident.country_iso3)` fixes it. |
 | 2 | **Fill `region_code` in 152 `dim_country` rows** | These countries fall through the hardcoded mapping in `scripts/seed_dimensions.py` — extend `_ISO3_TO_REGION`. |
-| 3 | **ACLED (2017–present)** | UCDP ends 2024-12-31; zero incident rows exist for 2025–2026. Register at acleddata.com, set `ACLED_API_KEY` + `ACLED_EMAIL`, then run `python3 scripts/run_pipeline.py --sources acled`. |
+| 3 | **ACLED (2017–present)** | UCDP ends 2024-12-31; zero incident rows exist for 2025–2026. Register at acleddata.com, set `ACLED_API_KEY` + `ACLED_EMAIL`, then run `uv run python scripts/run_pipeline.py --sources acled`. |
 | 4 | **`fact_news_pulse` is empty** | GDELT DOC 2.0 API is blocked from datacenter/WSL IPs. Run from a residential or cloud IP, or switch to a curated RSS feed approach. |
 
 ---
