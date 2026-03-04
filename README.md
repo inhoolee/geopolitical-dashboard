@@ -104,6 +104,12 @@ uv run python scripts/run_pipeline.py --sources all
 uv run python scripts/run_pipeline.py --sources all --full-refresh
 ```
 
+5. Backfill GDELT for a custom date range:
+
+```bash
+uv run python scripts/run_pipeline.py --sources gdelt --gdelt-start-date 2020-01-01 --gdelt-end-date 2020-06-30
+```
+
 ## Source Selection
 
 `uv run python scripts/run_pipeline.py --sources ...` accepts:
@@ -121,7 +127,20 @@ Examples:
 ```bash
 uv run python scripts/run_pipeline.py --sources wb,ofac,seed
 uv run python scripts/run_pipeline.py --sources acled --log-level DEBUG
+uv run python scripts/run_pipeline.py --sources gdelt --gdelt-start-date 2020-01-01
 ```
+
+GDELT date options:
+
+- `--gdelt-start-date YYYY-MM-DD`
+- `--gdelt-end-date YYYY-MM-DD`
+
+Rules:
+
+- `--gdelt-end-date` requires `--gdelt-start-date`.
+- If only `--gdelt-start-date` is set, end date defaults to the run date (today).
+- Date args are valid only when `--sources` includes `gdelt`.
+- If no GDELT date args are set, the extractor keeps the default recent 90-day behavior.
 
 ACLED is loaded from local CSV snapshots in `data/raw/acled/`:
 
@@ -198,7 +217,8 @@ PY
 - ACLED uses weekly aggregate CSV snapshots in this repo, not event-level API records.
 - ACLED aggregate rows do not include event-level actors/source URLs in this implementation.
 - OFAC SDN CSV has no canonical designation date in this implementation; `action_date` is ingestion-date based and flagged `LOW` confidence.
-- GDELT extraction is batched in ~90-day windows and capped by `GDELT_MAX_RECORDS` per query window.
+- GDELT extraction is batched in <=90-day windows and capped by `GDELT_MAX_RECORDS` per query window.
+- GDELT supports optional custom date-range backfills via `--gdelt-start-date/--gdelt-end-date`.
 
 ## Troubleshooting
 

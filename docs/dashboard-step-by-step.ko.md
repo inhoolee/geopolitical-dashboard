@@ -54,6 +54,18 @@ uv run python scripts/run_pipeline.py --sources seed,wb,ofac
 uv run python scripts/run_pipeline.py --sources all --full-refresh
 ```
 
+GDELT 과거 백필(기간 지정) 예시:
+
+```bash
+uv run python scripts/run_pipeline.py --sources gdelt --gdelt-start-date 2020-01-01 --gdelt-end-date 2020-06-30
+```
+
+GDELT 날짜 옵션 규칙:
+- `--gdelt-start-date YYYY-MM-DD`
+- `--gdelt-end-date YYYY-MM-DD` (단독 사용 불가)
+- `--gdelt-start-date`만 주면 종료일은 실행일(오늘)로 자동 설정
+- 날짜 옵션은 `--sources`에 `gdelt`가 포함된 경우에만 사용 가능
+
 참고:
 - 사건 데이터는 `UCDP_GED(1989-01-01~2024-12-31)` + `ACLED(1996-12-28~현재)`를 병합해 사용합니다.
 - `2026-03-03` 적재 기준 ACLED 최신 사건일은 `2026-02-21`입니다.

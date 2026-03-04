@@ -1,17 +1,22 @@
 """Main ETL orchestrator.
 
 Usage:
-    uv run python scripts/run_pipeline.py [--sources all|ucdp|wb|ofac|seed|gdelt|acled] [--full-refresh]
+    uv run python scripts/run_pipeline.py [--sources all|ucdp|wb|ofac|seed|gdelt|acled]
+                                      [--full-refresh]
+                                      [--gdelt-start-date YYYY-MM-DD]
+                                      [--gdelt-end-date YYYY-MM-DD]
 
 Example:
     uv run python scripts/run_pipeline.py                        # incremental, all available sources
     uv run python scripts/run_pipeline.py --sources seed,wb      # seed events + World Bank only
     uv run python scripts/run_pipeline.py --full-refresh         # re-download everything
+    uv run python scripts/run_pipeline.py --sources gdelt --gdelt-start-date 2020-01-01
 """
 
 import argparse
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -47,10 +52,11 @@ def run_source(
     conn,
     force: bool,
     replace_source_system: str | None = None,
+    extract_kwargs: dict | None = None,
 ) -> int:
     """Extract → transform → load one source. Returns rows loaded."""
     logger.info("=== %s ===", name)
-    ok = extractor.run(force=force)
+    ok = extractor.run(force=force, **(extract_kwargs or {}))
     if not ok:
         logger.warning("%s skipped (extractor unavailable)", name)
         return 0
@@ -100,6 +106,41 @@ SOURCES = {
 }
 
 
+def parse_iso_date(value: str) -> date:
+    """argparse type parser for YYYY-MM-DD dates."""
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid date '{value}'. Expected format: YYYY-MM-DD"
+        ) from exc
+
+
+def validate_gdelt_date_args(
+    source_keys: list[str],
+    gdelt_start_date: date | None,
+    gdelt_end_date: date | None,
+    today: date | None = None,
+) -> tuple[date | None, date | None]:
+    """Validate and normalize GDELT date arguments."""
+    if gdelt_start_date is None and gdelt_end_date is None:
+        return None, None
+
+    if "gdelt" not in source_keys:
+        raise ValueError("GDELT date arguments require --sources to include 'gdelt'")
+
+    if gdelt_start_date is None and gdelt_end_date is not None:
+        raise ValueError("--gdelt-end-date requires --gdelt-start-date")
+
+    if gdelt_start_date is not None and gdelt_end_date is None:
+        gdelt_end_date = today or date.today()
+
+    if gdelt_start_date and gdelt_end_date and gdelt_start_date > gdelt_end_date:
+        raise ValueError("--gdelt-start-date cannot be after --gdelt-end-date")
+
+    return gdelt_start_date, gdelt_end_date
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Geopolitical dashboard ETL pipeline")
     parser.add_argument(
@@ -111,6 +152,16 @@ def main() -> None:
         "--full-refresh",
         action="store_true",
         help="Force re-download of all raw data",
+    )
+    parser.add_argument(
+        "--gdelt-start-date",
+        type=parse_iso_date,
+        help="GDELT start date (YYYY-MM-DD). If set without --gdelt-end-date, end date defaults to today.",
+    )
+    parser.add_argument(
+        "--gdelt-end-date",
+        type=parse_iso_date,
+        help="GDELT end date (YYYY-MM-DD). Requires --gdelt-start-date.",
     )
     parser.add_argument(
         "--log-level",
@@ -128,6 +179,14 @@ def main() -> None:
     if invalid:
         logger.error("Unknown source keys: %s. Valid: %s", invalid, list(SOURCES.keys()))
         sys.exit(1)
+    try:
+        gdelt_start_date, gdelt_end_date = validate_gdelt_date_args(
+            source_keys=source_keys,
+            gdelt_start_date=args.gdelt_start_date,
+            gdelt_end_date=args.gdelt_end_date,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     conn = get_connection()
     bootstrap_schema(conn)
@@ -135,6 +194,12 @@ def main() -> None:
     total_rows = 0
     for key in source_keys:
         extractor, transform_fn, table = SOURCES[key]
+        extract_kwargs = None
+        if key == "gdelt":
+            extract_kwargs = {
+                "start_date": gdelt_start_date,
+                "end_date": gdelt_end_date,
+            }
         total_rows += run_source(
             name=key.upper(),
             extractor=extractor,
@@ -143,6 +208,7 @@ def main() -> None:
             conn=conn,
             force=args.full_refresh,
             replace_source_system="ACLED" if key == "acled" else None,
+            extract_kwargs=extract_kwargs,
         )
 
     logger.info("Pipeline complete. Total rows loaded: %d", total_rows)

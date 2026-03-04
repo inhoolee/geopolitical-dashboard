@@ -3,15 +3,13 @@
 import json
 import logging
 from datetime import date, timedelta
-from pathlib import Path
 
 import time
 
 import requests
 
 from pipeline.config import (
-    GDELT_BASE_URL, GDELT_MAX_RECORDS, GDELT_THEMES, GDELT_RAW_DIR,
-    DASHBOARD_START_DATE,
+    GDELT_BASE_URL, GDELT_MAX_RECORDS, GDELT_RAW_DIR,
 )
 from pipeline.extractors.base import BaseExtractor
 from pipeline.utils.retry import retry
@@ -25,10 +23,10 @@ _SIMPLE_THEME_QUERY = "(theme:MILITARY OR theme:SANCTION OR theme:DIPLOMACY)"
 
 
 def _quarter_windows(start: date, end: date) -> list[tuple[date, date]]:
-    """Split a date range into ~90-day windows (GDELT's practical max lookback)."""
+    """Split an inclusive date range into <=90-day windows."""
     windows = []
     current = start
-    while current < end:
+    while current <= end:
         window_end = min(current + timedelta(days=89), end)
         windows.append((current, window_end))
         current = window_end + timedelta(days=1)
@@ -45,23 +43,26 @@ class GDELTExtractor(BaseExtractor):
         **kwargs,
     ) -> None:
         """
-        Fetch GDELT articles for the recent window.
+        Fetch GDELT articles by date range.
 
-        NOTE: The GDELT DOC 2.0 API only reliably serves the last ~90 days.
-        For historical backfill (2017+), the GDELT Event Database bulk files on
-        Google Cloud Storage (gs://gdelt-open-data/) would be required instead.
-        This extractor fetches only the recent 90-day window for the news pulse panel.
+        If start/end are omitted, defaults to the most recent 90-day window.
+        If user-provided dates are set, fetches that exact inclusive date range.
+
+        References on DOC 2.0 date-range behavior:
+        - https://blog.gdeltproject.org/doc-2-0-updates-1-5-year-searching-and-updated-mobile-interface/
+        - https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/amp/
         """
         GDELT_RAW_DIR.mkdir(parents=True, exist_ok=True)
         end = end_date or date.today()
-        # Cap start to at most 88 days back (GDELT's reliable range)
-        max_lookback = end - timedelta(days=88)
-        start = max(start_date or max_lookback, max_lookback)
+        start = start_date or (end - timedelta(days=89))
+        if start > end:
+            raise ValueError(f"GDELT start_date ({start}) cannot be after end_date ({end})")
 
         windows = _quarter_windows(start, end)
+        mode = "user-specified range" if (start_date or end_date) else "default recent 90-day range"
         logger.info(
-            "GDELT fetch: %d window(s) (%s → %s) [recent 90-day window only]",
-            len(windows), start, end,
+            "GDELT fetch: %d window(s) (%s → %s) [%s, <=90-day batched windows]",
+            len(windows), start, end, mode,
         )
 
         for i, (window_start, window_end) in enumerate(windows):
