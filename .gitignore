@@ -7,11 +7,11 @@ dist/
 venv/
 
 # Downloaded raw data (large files)
-data/raw/
-data/warehouse/
+# data/raw/
+# data/warehouse/
 
 # DuckDB files
-*.duckdb
+# *.duckdb
 *.duckdb.wal
 
 # Tableau
