@@ -1,7 +1,7 @@
 """Main ETL orchestrator.
 
 Usage:
-    uv run python scripts/run_pipeline.py [--sources all|ucdp|wb|ofac|seed|gdelt|acled]
+    uv run python scripts/run_pipeline.py [--sources all|ucdp|wb|ofac|seed|gdelt|acled|acled_manual]
                                       [--full-refresh]
                                       [--gdelt-start-date YYYY-MM-DD]
                                       [--gdelt-end-date YYYY-MM-DD]
@@ -32,6 +32,7 @@ from pipeline.extractors.ofac_sdn import OFACSDNExtractor
 from pipeline.extractors.seed_events import SeedEventsExtractor
 from pipeline.extractors.gdelt import GDELTExtractor
 from pipeline.extractors.acled import ACLEDExtractor
+from pipeline.extractors.acled_manual import ACLEDManualExtractor
 
 # Transformers
 from pipeline.transformers import ucdp_ged as t_ucdp
@@ -40,6 +41,7 @@ from pipeline.transformers import ofac_sdn as t_ofac
 from pipeline.transformers import seed_events as t_seed
 from pipeline.transformers import gdelt as t_gdelt
 from pipeline.transformers import acled as t_acled
+from pipeline.transformers import acled_manual as t_acled_manual
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,7 @@ def run_source(
 SOURCES = {
     "ucdp": (UCDPGEDExtractor(), t_ucdp.transform, "fact_incident"),
     "acled": (ACLEDExtractor(), t_acled.transform, "fact_incident"),
+    "acled_manual": (ACLEDManualExtractor(), t_acled_manual.transform, "fact_incident"),
     "wb": (WorldBankExtractor(), t_wb.transform, "fact_risk_indicator"),
     "ofac": (OFACSDNExtractor(), t_ofac.transform, "fact_diplomatic_action"),
     "seed": (SeedEventsExtractor(), t_seed.transform, "fact_diplomatic_action"),
@@ -146,7 +149,7 @@ def main() -> None:
     parser.add_argument(
         "--sources",
         default="all",
-        help="Comma-separated source keys: all|ucdp|wb|ofac|seed|gdelt|acled",
+        help="Comma-separated source keys: all|ucdp|wb|ofac|seed|gdelt|acled|acled_manual",
     )
     parser.add_argument(
         "--full-refresh",
@@ -207,7 +210,7 @@ def main() -> None:
             table=table,
             conn=conn,
             force=args.full_refresh,
-            replace_source_system="ACLED" if key == "acled" else None,
+            replace_source_system={"acled": "ACLED", "acled_manual": "ACLED_MANUAL"}.get(key),
             extract_kwargs=extract_kwargs,
         )
 

@@ -30,6 +30,7 @@ DASHBOARD_START_DATE = date(2017, 1, 20)  # Trump's first inauguration
 ACLED_RAW_DIR = RAW_ROOT / "acled"
 ACLED_REGIONAL_CSV_GLOB = "*_aggregated_data_up_to-*.csv"
 ACLED_SUMMARY_CSV_PREFIX = "number_of_"
+ACLED_MANUAL_KPI_BACKFILL_CSV = SEEDS_PATH / "acled_manual_weekly_backfill_2026_jan_feb.csv"
 
 # ---------------------------------------------------------------------------
 # UCDP GED

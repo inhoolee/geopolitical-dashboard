@@ -6,6 +6,7 @@ ETL pipeline and DuckDB warehouse for tracking geopolitical change from **2017-0
 
 - Extracts raw data from:
   - ACLED (conflict events, local CSV snapshots)
+  - ACLED manual KPI backfill (hand-maintained weekly aggregate CSV)
   - UCDP GED v25.1 (conflict events, historical baseline)
   - World Bank WDI (macro + military spend indicators)
   - OFAC SDN (sanctions actions)
@@ -117,6 +118,7 @@ uv run python scripts/run_pipeline.py --sources gdelt --gdelt-start-date 2020-01
 - `all`
 - `ucdp`
 - `acled`
+- `acled_manual`
 - `wb`
 - `ofac`
 - `seed`
@@ -127,6 +129,7 @@ Examples:
 ```bash
 uv run python scripts/run_pipeline.py --sources wb,ofac,seed
 uv run python scripts/run_pipeline.py --sources acled --log-level DEBUG
+uv run python scripts/run_pipeline.py --sources acled,acled_manual --log-level DEBUG
 uv run python scripts/run_pipeline.py --sources gdelt --gdelt-start-date 2020-01-01
 ```
 
@@ -146,6 +149,16 @@ ACLED is loaded from local CSV snapshots in `data/raw/acled/`:
 
 ```bash
 uv run python scripts/run_pipeline.py --sources acled --log-level DEBUG
+```
+
+Manual KPI backfill rows for January-February 2026 live in:
+
+- `data/seeds/acled_manual_weekly_backfill_2026_jan_feb.csv`
+
+Load them after ACLED:
+
+```bash
+uv run python scripts/run_pipeline.py --sources acled_manual --log-level DEBUG
 ```
 
 ## Data Model
@@ -216,6 +229,8 @@ PY
 - UCDP GED in this pipeline is v25.1 and ends at **2024-12-31**.
 - ACLED uses weekly aggregate CSV snapshots in this repo, not event-level API records.
 - ACLED aggregate rows do not include event-level actors/source URLs in this implementation.
+- ACLED manual KPI backfill is a weekly aggregate supplement for February 2026 only; it currently adds four country rows for the `2026-02-16` week.
+- ACLED manual KPI backfill event counts are sourced from ACLED country-month summary exports; `fatalities_best` values are estimated from observed February country-level fatality/event ratios because no monthly fatality summary file is present in this repo.
 - OFAC SDN CSV has no canonical designation date in this implementation; `action_date` is ingestion-date based and flagged `LOW` confidence.
 - GDELT extraction is batched in <=90-day windows and capped by `GDELT_MAX_RECORDS` per query window.
 - GDELT supports optional custom date-range backfills via `--gdelt-start-date/--gdelt-end-date`.
